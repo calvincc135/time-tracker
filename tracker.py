@@ -3,14 +3,51 @@ from tkinter import ttk
 import csv
 import json
 import os
+import socket
+import struct
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(APP_DIR, "playtime_log.csv")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 
 WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+# ── NTP time sync ────────────────────────────────────────────────
+
+def _query_ntp(server="pool.ntp.org", timeout=3):
+    """Query an NTP server and return a datetime."""
+    NTP_EPOCH = datetime(1900, 1, 1)
+    msg = b"\x1b" + 47 * b"\0"
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    try:
+        sock.sendto(msg, (server, 123))
+        data, _ = sock.recvfrom(1024)
+    finally:
+        sock.close()
+    t = struct.unpack("!12I", data)[10]
+    # t is the transmit timestamp (index 10)
+    return NTP_EPOCH + timedelta(seconds=t)
+
+
+def sync_time_offset():
+    """Return the offset (NTP time - local time) as a timedelta."""
+    try:
+        ntp_time = _query_ntp()
+        return ntp_time - datetime.utcnow()
+    except Exception:
+        return timedelta(0)
+
+
+_time_offset = sync_time_offset()
+
+
+def now():
+    """Return the current time adjusted by the NTP offset."""
+    return datetime.now() + _time_offset
 
 
 def load_config():
@@ -26,14 +63,14 @@ def load_config():
 
 def is_holiday(cfg):
     """Return True if today's date is in the holidays list."""
-    return date.today().strftime("%Y-%m-%d") in cfg.get("holidays", [])
+    return now().date().strftime("%Y-%m-%d") in cfg.get("holidays", [])
 
 
 def get_daily_limit(cfg):
     """Return the limit in minutes based on today being a weekday, weekend, or holiday."""
     if is_holiday(cfg):
         return cfg["weekend_limit_minutes"]
-    day = date.today().weekday()  # 0=Mon … 6=Sun
+    day = now().date().weekday()  # 0=Mon … 6=Sun
     if day < 5:
         return cfg["weekday_limit_minutes"]
     return cfg["weekend_limit_minutes"]
@@ -87,7 +124,7 @@ def read_sessions():
 
 
 def today_total_minutes(sessions):
-    today_str = date.today().strftime("%Y-%m-%d")
+    today_str = now().date().strftime("%Y-%m-%d")
     total = 0.0
     for s in sessions:
         if s.get("date") == today_str:
@@ -220,8 +257,10 @@ class PlayTimeTracker:
             self._start_session()
 
     def _start_session(self):
+        global _time_offset
+        _time_offset = sync_time_offset()
         self.running = True
-        self.start_time = datetime.now()
+        self.start_time = now()
         self.elapsed = 0
         self.current_game = self.game_var.get()
         self.game_dropdown.config(state="disabled")
@@ -236,7 +275,7 @@ class PlayTimeTracker:
         if not self.running:
             return
         self.running = False
-        end_time = datetime.now()
+        end_time = now()
         append_session(self.start_time, end_time, self.current_game)
         self.start_time = None
         self.game_dropdown.config(state="readonly")
@@ -251,7 +290,7 @@ class PlayTimeTracker:
     def _tick(self):
         if not self.running:
             return
-        self.elapsed = (datetime.now() - self.start_time).total_seconds()
+        self.elapsed = (now() - self.start_time).total_seconds()
         h, rem = divmod(int(self.elapsed), 3600)
         m, s = divmod(rem, 60)
         self.timer_label.config(text=f"{h:02d}:{m:02d}:{s:02d}")
@@ -270,10 +309,10 @@ class PlayTimeTracker:
         limit = get_daily_limit(self.config)
         pct = min(logged / limit * 100, 100) if limit > 0 else 0
 
-        day_name = WEEKDAY_NAMES[date.today().weekday()]
+        day_name = WEEKDAY_NAMES[now().date().weekday()]
         if is_holiday(self.config):
             kind = "Holiday"
-        elif date.today().weekday() >= 5:
+        elif now().date().weekday() >= 5:
             kind = "Weekend"
         else:
             kind = "Weekday"
