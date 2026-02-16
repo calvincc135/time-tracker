@@ -1,5 +1,9 @@
-date,start_time,end_time,duration_minutes
-2026-02-16,09:12 AM,09:12 AM,0.1
-2026-02-16,09:19 AM,09:19 AM,0.0
-2026-02-16,09:19 AM,09:19 AM,0.0
+date,start_time,end_time,duration_minutes,game
+2026-02-16,09:12 AM,09:12 AM,0.1,Minecraft
+2026-02-16,09:19 AM,09:19 AM,0.0,Minecraft
+2026-02-16,09:19 AM,09:19 AM,0.0,Minecraft
 2026-02-16,08:28 AM,08:28 AM,0.0,Minecraft
+2026-02-16,08:32 AM,08:32 AM,0.0,VR
+2026-02-16,08:36 AM,08:36 AM,0.0,Minecraft
+2026-02-16,08:37 AM,08:37 AM,0.0,Minecraft
+2026-02-16,02:23 PM,02:23 PM,0.0,Minecraft

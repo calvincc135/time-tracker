@@ -39,11 +39,24 @@ def get_daily_limit(cfg):
     return cfg["weekend_limit_minutes"]
 
 
+EXPECTED_HEADER = ["date", "start_time", "end_time", "duration_minutes", "game"]
+
+
 def ensure_csv():
     if not os.path.exists(CSV_PATH):
         with open(CSV_PATH, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["date", "start_time", "end_time", "duration_minutes", "game"])
+            writer.writerow(EXPECTED_HEADER)
+    else:
+        with open(CSV_PATH, "r", newline="") as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+        if header != EXPECTED_HEADER:
+            with open(CSV_PATH, "r", newline="") as f:
+                lines = f.readlines()
+            with open(CSV_PATH, "w", newline="") as f:
+                f.write(",".join(EXPECTED_HEADER) + "\n")
+                f.writelines(lines[1:] if lines else [])
 
 
 def append_session(start_dt, end_dt, game=""):
@@ -193,7 +206,7 @@ class PlayTimeTracker:
         ).pack(fill="x")
 
         self.history_text = tk.Text(
-            hist_frame, height=6, width=42, font=("Consolas", 10),
+            hist_frame, height=6, width=52, font=("Consolas", 10),
             bg="#fafafa", relief="flat", state="disabled", wrap="none",
         )
         self.history_text.pack(fill="both", expand=True, pady=(4, 0))
