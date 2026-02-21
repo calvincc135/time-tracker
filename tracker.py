@@ -261,6 +261,7 @@ class PlayTimeTracker:
         _time_offset = sync_time_offset()
         self.running = True
         self.start_time = now()
+        self._mono_start = time.monotonic()
         self.elapsed = 0
         self.current_game = self.game_var.get()
         self.game_dropdown.config(state="disabled")
@@ -275,7 +276,8 @@ class PlayTimeTracker:
         if not self.running:
             return
         self.running = False
-        end_time = now()
+        self.elapsed = time.monotonic() - self._mono_start
+        end_time = self.start_time + timedelta(seconds=self.elapsed)
         append_session(self.start_time, end_time, self.current_game)
         self.start_time = None
         self.game_dropdown.config(state="readonly")
@@ -290,7 +292,7 @@ class PlayTimeTracker:
     def _tick(self):
         if not self.running:
             return
-        self.elapsed = (now() - self.start_time).total_seconds()
+        self.elapsed = time.monotonic() - self._mono_start
         h, rem = divmod(int(self.elapsed), 3600)
         m, s = divmod(rem, 60)
         self.timer_label.config(text=f"{h:02d}:{m:02d}:{s:02d}")
